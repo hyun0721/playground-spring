@@ -1,30 +1,47 @@
 package com.example.exspringboot.config;
 
+import com.example.exspringboot.config.filter.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain (HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/public/**").permitAll()     // 누구나 접근 가능
-                        .anyRequest().authenticated()                           // 나머지는 로그인 필요
-                )
-                .formLogin(form -> form   // 기본 로그인 화면 사용
-                        .defaultSuccessUrl("/", true) // 로그인 성공하면 /profile로 이동
-                )
-                .logout(logout -> logout
-                        .invalidateHttpSession(true)    // 세션 무효화
-                        .clearAuthentication(true)      // 인증정보삭제
-                        .deleteCookies("JSESSIONID")      // 쿠키삭제
-                        .logoutSuccessUrl("/login")      // 쿠키삭제
-                );
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/api/auth/**", "/h2-console/**").permitAll()     // 누구나 접근 가능
+                .anyRequest().authenticated()                           // 나머지는 로그인 필요
+            )
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+        ;
 
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 }
